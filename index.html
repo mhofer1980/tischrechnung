@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tischrechnung</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f26;--mu:#6b7380;--ln:#e5e8ed;--dr:#2f7fd6;--drs:#e8f1fc;--fo:#e8803a;--fos:#fdeee2;--ac:#1b1f26;--ok:#2a9d6b;--bad:#d64545}
+@media (prefers-color-scheme:dark){:root{--bg:#14161a;--card:#1d2026;--tx:#eef0f3;--mu:#98a0ad;--ln:#2c3038;--drs:#1b2b40;--fos:#3a2819;--ac:#eef0f3}}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+main{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:0}h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:16px;padding:16px;margin-bottom:16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--ln);border-radius:10px;padding:9px 11px;min-width:0}
+input:focus,select:focus{outline:2px solid var(--dr)}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:9px 14px;background:var(--ac);color:var(--bg);font-weight:600}
+button.ghost{background:transparent;color:var(--mu);border:1px solid var(--ln);font-weight:500}
+button.x{background:none;color:var(--mu);padding:0 4px;font-size:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1px solid var(--ln);background:var(--bg);color:var(--tx);font-weight:500}
+.chip.on{background:var(--ac);color:var(--bg);border-color:var(--ac)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.tile{position:relative;text-align:left;padding:11px 12px;border-radius:12px;font-weight:500;color:var(--tx);border:1px solid transparent}
+.tile.drink{background:var(--drs);border-color:color-mix(in srgb,var(--dr) 30%,transparent)}
+.tile.food{background:var(--fos);border-color:color-mix(in srgb,var(--fo) 30%,transparent)}
+.tile small{display:block;color:var(--mu);font-weight:400}
+.tile .ed{position:absolute;right:6px;top:6px;font-size:12px;color:var(--mu);padding:2px 5px}
+.tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+.tag.drink{background:var(--drs);color:var(--dr)}.tag.food{background:var(--fos);color:var(--fo)}
+.sec{margin:14px 0 8px;font-size:13px;font-weight:600}
+.bill{border-top:1px solid var(--ln);padding:12px 0}.bill:first-child{border-top:0}
+.hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.nm{font-weight:700}.tot{font-weight:700;font-size:18px}
+.ln{display:flex;justify-content:space-between;gap:8px;color:var(--mu);font-size:14px;padding:3px 0;align-items:center}
+.ln span:first-child{display:flex;gap:8px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%}.dot.drink{background:var(--dr)}.dot.food{background:var(--fo)}
+.grand{display:flex;justify-content:space-between;font-size:18px;font-weight:700;padding-top:12px;border-top:2px solid var(--ln)}
+.muted{color:var(--mu);font-size:13px}
+.cr{display:grid;grid-template-columns:1fr 84px 70px;gap:8px;padding:7px 0;border-top:1px solid var(--ln);align-items:center;font-size:14px}
+.cr input{width:100%;padding:6px 8px;text-align:right}.r{text-align:right}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+dialog{border:1px solid var(--ln);border-radius:16px;background:var(--card);color:var(--tx);padding:20px;width:min(340px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ac);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+.toast.show{opacity:1}
+a.btn{font-size:13px;color:var(--dr);font-weight:600;text-decoration:none}
+</style>
+</head>
+<body>
+<main>
+
+<!-- ============ STARTSEITE ============ -->
+<div id="home">
+  <h1>Tischrechnung</h1>
+  <div class="muted" style="margin:2px 0 18px">Rechnung am Tisch fair aufteilen – live für alle.</div>
+  <div class="card" id="setup" hidden><b>Firebase ist noch nicht eingerichtet.</b><div class="muted">Trage deine Firebase-Daten oben in index.html ein (siehe ANLEITUNG.md).</div></div>
+  <section class="card">
+    <h2>Neuer Tisch</h2>
+    <div class="row"><select id="vsel" style="flex:1 1 200px"></select></div>
+    <div id="newv" class="row" style="margin-top:8px">
+      <input id="vname" placeholder="Name des Gasthauses" style="flex:1 1 200px" autocomplete="off">
+      <select id="vtpl" style="flex:1 1 200px"></select>
+    </div>
+    <div style="margin-top:12px"><button id="start">Tisch starten</button></div>
+  </section>
+  <section class="card">
+    <h2>Tisch beitreten</h2>
+    <div class="row"><input id="jcode" placeholder="Tisch-Code" maxlength="6" style="flex:1;text-transform:uppercase" autocomplete="off"><button id="join">Beitreten</button></div>
+    <div id="recent" style="margin-top:12px" class="row"></div>
+  </section>
+</div>
+
+<!-- ============ TISCH ============ -->
+<div id="app" hidden>
+  <div class="row" style="justify-content:space-between;margin-bottom:4px">
+    <div><h1 id="vn"></h1><div class="muted" id="vd"></div></div>
+    <div class="row"><button class="ghost" id="share">Teilen</button><button class="ghost" id="back">Wechseln</button></div>
+  </div>
+  <div style="height:14px"></div>
+
+  <section class="card">
+    <h2>Gäste</h2>
+    <form class="row" onsubmit="return false">
+      <input id="pn" placeholder="Name" style="flex:1 1 130px" autocomplete="off">
+      <input id="pe" type="email" placeholder="E-Mail" style="flex:2 1 180px" autocomplete="off">
+      <button id="pa" type="button">Hinzufügen</button>
+    </form>
+    <div class="row" id="people" style="margin-top:12px"></div>
+  </section>
+
+  <section class="card">
+    <h2>Bestellung erfassen</h2>
+    <div class="muted" id="hint" style="margin-bottom:10px"></div>
+    <div class="row" id="pick"></div>
+    <div class="sec"><span class="tag drink">Getränke</span></div>
+    <div class="tiles" id="drinks"></div>
+    <div class="sec"><span class="tag food">Speisen</span></div>
+    <div class="tiles" id="foods"></div>
+    <div class="sec" style="margin-top:18px">Neu zur Preisliste dieses Gasthauses</div>
+    <form class="row" onsubmit="return false">
+      <input id="in" placeholder="Name" style="flex:2 1 140px" autocomplete="off">
+      <select id="ic"><option value="drink">Getränk</option><option value="food">Speise</option></select>
+      <input id="ip" inputmode="decimal" placeholder="Preis €" style="flex:1 1 80px;max-width:110px" autocomplete="off">
+      <button id="ia" type="button">Anlegen</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Abrechnung</h2>
+    <div id="bill"></div>
+    <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="ghost" id="reset"></button></div>
+  </section>
+
+  <section class="card">
+    <h2>Mit Restaurant-Rechnung abgleichen</h2>
+    <div class="muted" style="margin-bottom:8px">Menge laut Rechnung eintragen, Abweichungen werden markiert.</div>
+    <div id="cmp"></div>
+  </section>
+</div>
+</main>
+
+<dialog id="dlg">
+  <div style="font-weight:700;margin-bottom:4px">Eintrag bearbeiten</div>
+  <div class="muted" id="dd" style="margin-bottom:12px"></div>
+  <input id="dn" placeholder="Name" style="width:100%;margin-bottom:8px" autocomplete="off">
+  <div class="row" style="flex-wrap:nowrap"><select id="dk" style="flex:1"><option value="drink">Getränk</option><option value="food">Speise</option></select><input id="dp" inputmode="decimal" placeholder="Preis, z. B. 4,20" style="flex:1" autocomplete="off"></div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="ghost" id="dx" style="margin-right:auto;color:var(--bad)">Löschen</button><button class="ghost" id="dc">Abbrechen</button><button id="ds">Speichern</button></div>
+</dialog>
+<dialog id="sdlg">
+  <div style="font-weight:700;margin-bottom:10px">Tisch teilen</div>
+  <div id="qr" style="display:flex;justify-content:center;background:#fff;padding:12px;border-radius:12px"></div>
+  <div class="muted" style="margin:10px 0 4px">Code: <b id="scode" style="font-size:16px;letter-spacing:.1em"></b></div>
+  <input id="slink" readonly style="width:100%;margin-bottom:12px">
+  <div class="row" style="justify-content:flex-end"><button class="ghost" id="sc">Schließen</button><button id="scp">Link kopieren</button></div>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getFirestore,doc,getDoc,setDoc,addDoc,deleteDoc,collection,onSnapshot,writeBatch,getDocs} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ===== HIER DEINE FIREBASE-DATEN EINTRAGEN (siehe ANLEITUNG.md) ===== */
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyB_rjgv9wBoF5-e8y72xXJnn1X0uFiFZdE",
+  authDomain: "tischabrechnung.firebaseapp.com",
+  projectId: "tischabrechnung",
+  storageBucket: "tischabrechnung.firebasestorage.app",
+  messagingSenderId: "496208293223",
+  appId: "1:496208293223:web:df4c70c5ebd2259562d3c2"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+/* ==================================================================== */
+
+const $=s=>document.querySelector(s);
+const eur=n=>n.toLocaleString('de-AT',{style:'currency',currency:'EUR'});
+const num=s=>{const v=parseFloat(String(s).trim().replace(',','.'));return isFinite(v)&&v>=0?Math.round(v*100)/100:null};
+function h(t,a={},...c){const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e[k]=a[k]}c.flat().forEach(x=>e.append(x));return e}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),1900)}
+const DEFAULTS=['Bier 0,5l','Bier 0,3l','Weizen','Soda Zitrone','Soda','Cola','Apfelsaft','Apfelsaft gespritzt','Weißer gespritzt 0,5l','Weißer gespritzt 0,25l','Most gespritzt 0,5l','Aperol'];
+const dstr=d=>d?d.split('-').reverse().join('.'):'';
+
+if(CFG.apiKey.startsWith('DEIN')){$('#setup').hidden=false;$('#start').disabled=true;$('#join').disabled=true}
+const db=CFG.apiKey.startsWith('DEIN')?null:getFirestore(initializeApp(CFG));
+
+let venues=[],T=null,sel=null,pending=null,resetArm=false,unsubs=[];
+const S={people:[],items:[],orders:[]};
+const B={};let billTotal='';
+const path=c=>c==='items'?['venues',T.vid,'items']:['tables',T.id,c];
+const put=(c,id,d)=>setDoc(doc(db,...path(c),id),d);
+const add=(c,d)=>addDoc(collection(db,...path(c)),d);
+const del=(c,id)=>deleteDoc(doc(db,...path(c),id));
+const safe=p=>p.catch(()=>toast('Speichern fehlgeschlagen'));
+const catOf=o=>(S.items.find(i=>i.id===o.iid)||o).cat||'drink';
+
+/* ---------- Startseite ---------- */
+function fillHome(){
+  const vs=$('#vsel');vs.replaceChildren(h('option',{value:'new'},'➕ Neues Gasthaus'));
+  venues.forEach(v=>vs.append(h('option',{value:v.id},v.name)));
+  const t=$('#vtpl');t.replaceChildren(h('option',{value:'default'},'Bei null starten (Standardgetränke ohne Preise)'));
+  venues.forEach(v=>t.append(h('option',{value:v.id},'Preise kopieren von: '+v.name)));
+  $('#newv').hidden=vs.value!=='new';
+  const rc=JSON.parse(localStorage.getItem('recent')||'[]');
+  $('#recent').replaceChildren(...rc.map(r=>h('button',{class:'chip',onclick:()=>openTable(r.id)},r.name+' · '+dstr(r.date))));
+}
+$('#vsel').onchange=()=>$('#newv').hidden=$('#vsel').value!=='new';
+if(db)onSnapshot(collection(db,'venues'),s=>{const keep=$('#vsel').value;venues=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));fillHome();if(venues.some(v=>v.id===keep))$('#vsel').value=keep,$('#newv').hidden=true});
+fillHome();
+
+$('#start').onclick=async()=>{
+  try{
+    let vid=$('#vsel').value,vname;
+    if(vid==='new'){
+      vname=$('#vname').value.trim();if(!vname){toast('Bitte Namen des Gasthauses eingeben');return}
+      const vr=doc(collection(db,'venues'));vid=vr.id;const b=writeBatch(db);
+      b.set(vr,{name:vname,ts:Date.now()});
+      const src=$('#vtpl').value;
+      if(src==='default')DEFAULTS.forEach((n,i)=>b.set(doc(db,'venues',vid,'items','d'+i),{name:n,cat:'drink',price:null,o:i}));
+      else(await getDocs(collection(db,'venues',src,'items'))).forEach(d=>b.set(doc(db,'venues',vid,'items',d.id),d.data()));
+      await b.commit();
+    }else vname=venues.find(v=>v.id===vid).name;
+    const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let code='';for(let i=0;i<6;i++)code+=A[Math.floor(Math.random()*A.length)];
+    await setDoc(doc(db,'tables',code),{vid,venueName:vname,date:new Date().toISOString().slice(0,10),ts:Date.now()});
+    openTable(code);
+  }catch(e){toast('Fehler: Firebase-Einstellungen/Regeln prüfen')}};
+$('#join').onclick=()=>{const c=$('#jcode').value.trim().toUpperCase();if(c)openTable(c)};
+
+/* ---------- Tisch ---------- */
+async function openTable(id){
+  try{
+    const s=await getDoc(doc(db,'tables',id));
+    if(!s.exists()){toast('Tisch nicht gefunden');return}
+    closeTable();T={id,...s.data()};sel=null;
+    const rc=JSON.parse(localStorage.getItem('recent')||'[]').filter(r=>r.id!==id);rc.unshift({id,name:T.venueName,date:T.date});localStorage.setItem('recent',JSON.stringify(rc.slice(0,4)));
+    history.replaceState(null,'','#'+id);
+    $('#home').hidden=true;$('#app').hidden=false;
+    $('#vn').textContent=T.venueName;$('#vd').textContent=dstr(T.date)+' · Code '+id;
+    for(const c of ['people','items','orders'])unsubs.push(onSnapshot(collection(db,...path(c)),q=>{S[c]=q.docs.map(d=>({id:d.id,...d.data()}));if(c==='people'&&sel&&!S.people.some(p=>p.id===sel))sel=null;render()},()=>toast('Verbindungsproblem')));
+    render();
+  }catch(e){toast('Tisch konnte nicht geöffnet werden')}}
+function closeTable(){unsubs.forEach(u=>u());unsubs=[];T=null;S.people=[];S.items=[];S.orders=[]}
+$('#back').onclick=()=>{closeTable();history.replaceState(null,'',location.pathname);$('#app').hidden=true;$('#home').hidden=false;fillHome()};
+if(db&&location.hash.length>1)openTable(location.hash.slice(1).toUpperCase());
+
+$('#share').onclick=()=>{
+  const link=location.origin+location.pathname+'#'+T.id;
+  $('#qr').replaceChildren();new QRCode($('#qr'),{text:link,width:180,height:180});
+  $('#scode').textContent=T.id;$('#slink').value=link;$('#sdlg').showModal()};
+$('#sc').onclick=()=>$('#sdlg').close();
+$('#scp').onclick=async()=>{try{await navigator.clipboard.writeText($('#slink').value);toast('Link kopiert')}catch(e){$('#slink').select();toast('Link markiert – bitte kopieren')}};
+
+function render(){
+  if(!T)return;
+  const pe=$('#people');pe.replaceChildren();
+  if(!S.people.length)pe.append(h('span',{class:'muted'},'Noch keine Gäste.'));
+  S.people.forEach(p=>{
+    const c=h('span',{class:'chip'+(sel===p.id?' on':''),onclick:()=>{sel=p.id;render()}},p.name);
+    if(!S.orders.some(o=>o.pid===p.id))c.append(h('button',{class:'x',onclick:e=>{e.stopPropagation();safe(del('people',p.id))}},'×'));
+    pe.append(c)});
+  const pk=$('#pick');pk.replaceChildren();
+  S.people.forEach(p=>pk.append(h('button',{class:'chip'+(sel===p.id?' on':''),onclick:()=>{sel=p.id;render()}},p.name)));
+  const sp=S.people.find(p=>p.id===sel);
+  $('#hint').textContent=sp?'Bestellung für '+sp.name+' – Getränk oder Gericht antippen':'1. Gast antippen · 2. Getränk oder Gericht antippen';
+  for(const [cat,el] of [['drink','#drinks'],['food','#foods']]){
+    const box=$(el);box.replaceChildren();
+    const list=S.items.filter(i=>i.cat===cat).sort((a,b)=>(a.o||0)-(b.o||0));
+    if(!list.length)box.append(h('span',{class:'muted'},'Noch nichts angelegt.'));
+    list.forEach(i=>box.append(h('button',{class:'tile '+cat,onclick:()=>order(i)},i.name,h('small',{},i.price==null?'Preis fehlt':eur(i.price)),h('span',{class:'ed',onclick:e=>{e.stopPropagation();askPrice(i)}},'✎'))))}
+  const b=$('#bill');b.replaceChildren();
+  const active=S.people.filter(p=>S.orders.some(o=>o.pid===p.id));
+  if(!active.length)b.append(h('div',{class:'muted'},'Noch keine Bestellungen.'));
+  active.forEach(p=>{
+    const mine=S.orders.filter(o=>o.pid===p.id),g={};
+    mine.forEach(o=>{const k=o.iid+'|'+o.price;(g[k]=g[k]||{o,n:0,ids:[]}).n++;g[k].ids.push(o.id)});
+    const tot=mine.reduce((a,o)=>a+o.price,0);
+    const bl=h('div',{class:'bill'},h('div',{class:'hd'},h('span',{class:'nm'},p.name),h('span',{class:'tot'},eur(tot))));
+    Object.values(g).forEach(x=>{const it=S.items.find(i=>i.id===x.o.iid)||{name:x.o.name||'?',cat:x.o.cat||'drink'};
+      bl.append(h('div',{class:'ln'},h('span',{},h('span',{class:'dot '+it.cat}),x.n+'× '+it.name,h('button',{class:'x',onclick:()=>safe(del('orders',x.ids[x.ids.length-1]))},'−')),h('span',{},eur(x.n*x.o.price))))});
+    if(p.email){const body='Hallo '+p.name+',\n\ndein Anteil an der Rechnung ('+T.venueName+', '+dstr(T.date)+'): '+eur(tot)+'\n\n'+Object.values(g).map(x=>x.n+'× '+((S.items.find(i=>i.id===x.o.iid)||x.o).name||'?')+' – '+eur(x.n*x.o.price)).join('\n');
+      bl.append(h('a',{class:'btn',href:'mailto:'+encodeURIComponent(p.email)+'?subject='+encodeURIComponent('Dein Anteil – '+T.venueName)+'&body='+encodeURIComponent(body)},'Per E-Mail senden →'))}
+    b.append(bl)});
+  if(active.length){
+    const all=S.orders.reduce((a,o)=>a+o.price,0),dr=S.orders.filter(o=>catOf(o)==='drink').reduce((a,o)=>a+o.price,0);
+    b.append(h('div',{class:'muted',style:'display:flex;justify-content:space-between;padding-top:8px'},h('span',{},'davon Getränke '+eur(dr)),h('span',{},'Speisen '+eur(all-dr))));
+    b.append(h('div',{class:'grand'},h('span',{},'Gesamt'),h('span',{},eur(all))))}
+  $('#reset').textContent=resetArm?'Wirklich alle löschen?':'Alle Bestellungen löschen';
+  buildCmp();
+}
+
+/* Abgleich mit Rechnung (manuell) */
+function ours(){const m={};S.orders.forEach(o=>{const it=S.items.find(i=>i.id===o.iid);const k=it?it.id:'n:'+(o.name||'?');const e=m[k]=m[k]||{id:k,name:it?it.name:(o.name||'?'),qty:0,total:0};e.qty++;e.total+=o.price});return Object.values(m)}
+function buildCmp(){
+  const box=$('#cmp');box.replaceChildren();const rows=ours();
+  if(!rows.length){box.append(h('div',{class:'muted'},'Noch keine Bestellungen.'));return}
+  box.append(h('div',{class:'cr muted'},h('span',{},'Position (erfasst)'),h('span',{class:'r'},'Laut Rechnung'),h('span',{class:'r'},'Status')));
+  const sts=[];
+  const upd=()=>{rows.forEach((r,i)=>{const v=B[r.id];const ok=v!==undefined&&v!=='';const d=ok?Number(v)-r.qty:null;
+    sts[i].textContent=!ok?'–':d===0?'passt':(d>0?'+':'')+d;sts[i].className='r '+(!ok?'':d===0?'ok':'bad')});
+    const all=S.orders.reduce((a,o)=>a+o.price,0),bt=num(billTotal);
+    dif.textContent=bt==null?'':'Differenz Rechnung − erfasst: '+((bt-all)>0?'+':'')+eur(Math.round((bt-all)*100)/100);dif.className='grand '+(bt==null?'':Math.abs(bt-all)<.005?'ok':'bad')};
+  const dif=h('div',{});
+  rows.forEach((r,i)=>{const inp=h('input',{type:'number',min:'0',inputMode:'numeric',value:B[r.id]??'',oninput:e=>{B[r.id]=e.target.value;upd()}});const st=h('span',{class:'r'});sts.push(st);
+    box.append(h('div',{class:'cr'},h('span',{},r.qty+'× '+r.name+' ('+eur(r.total)+')'),inp,st))});
+  const bt=h('input',{inputMode:'decimal',placeholder:'Rechnungssumme €',value:billTotal,style:'width:100%;margin-top:10px',oninput:e=>{billTotal=e.target.value;upd()}});
+  box.append(bt,h('div',{style:'margin-top:8px'},dif));upd()}
+
+/* ---------- Bestellen / Einträge ---------- */
+function askPrice(item,then){
+  pending={item,then};
+  $('#dn').value=item.name;$('#dk').value=item.cat;$('#dp').value=item.price==null?'':String(item.price).replace('.',',');
+  const k=S.orders.filter(o=>o.iid===item.id).length;
+  $('#dd').textContent=(item.price==null?'Noch kein Preis hinterlegt. ':'')+'Gilt für die Preisliste von '+T.venueName+'. Bereits erfasste Bestellungen behalten ihren Preis'+(k?' ('+k+' vorhanden).':'.');
+  $('#dx').hidden=!item.id;$('#dlg').showModal();setTimeout(()=>$('#dp').focus(),50)}
+async function order(item){
+  if(!sel){toast('Bitte zuerst einen Gast wählen');return}
+  if(item.price==null){askPrice(item,(p,u)=>order({...item,...u,price:p}));return}
+  await safe(add('orders',{pid:sel,iid:item.id,price:item.price,name:item.name,cat:item.cat,ts:Date.now()}));
+  const p=S.people.find(x=>x.id===sel);toast(item.name+' → '+(p?p.name:''))}
+$('#ds').onclick=async()=>{
+  const {item,then}=pending,raw=$('#dp').value.trim(),v=raw?num(raw):null,n=$('#dn').value.trim();
+  if(!n){toast('Name fehlt');return}
+  if((raw&&v==null)||(then&&v==null)){toast('Bitte gültigen Preis eingeben');return}
+  $('#dlg').close();const u={name:n,cat:$('#dk').value,o:item.o||0,price:v};
+  await safe(put('items',item.id,u));if(then)then(v,u)};
+$('#dx').onclick=async()=>{const {item}=pending;$('#dlg').close();await safe(del('items',item.id));toast('Eintrag gelöscht')};
+$('#dc').onclick=()=>$('#dlg').close();
+$('#dp').addEventListener('keydown',e=>{if(e.key==='Enter')$('#ds').click()});
+
+$('#pa').onclick=async()=>{
+  const n=$('#pn').value.trim(),m=$('#pe').value.trim();
+  if(!n){toast('Name fehlt');return}
+  if(m&&!/^\S+@\S+\.\S+$/.test(m)){toast('E-Mail wirkt ungültig');return}
+  await safe(add('people',{name:n,email:m,ts:Date.now()}));$('#pn').value='';$('#pe').value='';$('#pn').focus()};
+$('#ia').onclick=async()=>{
+  const n=$('#in').value.trim();if(!n){toast('Name fehlt');return}
+  const raw=$('#ip').value.trim(),pr=raw?num(raw):null;if(raw&&pr==null){toast('Preis ungültig');return}
+  await safe(put('items','c'+Date.now().toString(36),{name:n,cat:$('#ic').value,price:pr,o:1000+S.items.length}));$('#in').value='';$('#ip').value=''};
+$('#reset').onclick=async()=>{
+  if(!resetArm){resetArm=true;render();setTimeout(()=>{resetArm=false;render()},3000);return}
+  resetArm=false;await Promise.all(S.orders.map(o=>safe(del('orders',o.id))));for(const k in B)delete B[k];billTotal='';render()};
+</script>
+</body>
+</html>
