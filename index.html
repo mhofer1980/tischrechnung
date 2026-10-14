@@ -48,7 +48,7 @@ a.btn{font-size:13px;color:var(--dr);font-weight:600;text-decoration:none}
 </head>
 <body>
 <main>
-
+<div class="card" id="err" hidden style="border-color:var(--bad);color:var(--bad);font-weight:600"></div>
 <!-- ============ STARTSEITE ============ -->
 <div id="home">
   <h1>Tischrechnung</h1>
@@ -149,6 +149,7 @@ const eur=n=>n.toLocaleString('de-AT',{style:'currency',currency:'EUR'});
 const num=s=>{const v=parseFloat(String(s).trim().replace(',','.'));return isFinite(v)&&v>=0?Math.round(v*100)/100:null};
 function h(t,a={},...c){const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e[k]=a[k]}c.flat().forEach(x=>e.append(x));return e}
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),1900)}
+function showErr(e,w){console.error(e);const b=$('#err');b.hidden=false;b.textContent=w+' ('+((e&&(e.code||e.message))||e)+')'}
 const DEFAULTS=['Bier 0,5l','Bier 0,3l','Weizen','Soda Zitrone','Soda','Cola','Apfelsaft','Apfelsaft gespritzt','Weißer gespritzt 0,5l','Weißer gespritzt 0,25l','Most gespritzt 0,5l','Aperol'];
 const dstr=d=>d?d.split('-').reverse().join('.'):'';
 
@@ -180,6 +181,7 @@ if(db)onSnapshot(collection(db,'venues'),s=>{const keep=$('#vsel').value;venues=
 fillHome();
 
 $('#start').onclick=async()=>{
+  $('#err').hidden=true;
   try{
     let vid=$('#vsel').value,vname;
     if(vid==='new'){
@@ -192,24 +194,25 @@ $('#start').onclick=async()=>{
       await b.commit();
     }else vname=venues.find(v=>v.id===vid).name;
     const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let code='';for(let i=0;i<6;i++)code+=A[Math.floor(Math.random()*A.length)];
-    await setDoc(doc(db,'tables',code),{vid,venueName:vname,date:new Date().toISOString().slice(0,10),ts:Date.now()});
-    openTable(code);
-  }catch(e){toast('Fehler: Firebase-Einstellungen/Regeln prüfen')}};
+    const td={vid,venueName:vname,date:new Date().toISOString().slice(0,10),ts:Date.now()};
+    await setDoc(doc(db,'tables',code),td);
+    await openTable(code,td);
+  }catch(e){showErr(e,'Tisch konnte nicht gestartet werden')}};
 $('#join').onclick=()=>{const c=$('#jcode').value.trim().toUpperCase();if(c)openTable(c)};
 
 /* ---------- Tisch ---------- */
-async function openTable(id){
+async function openTable(id,data){
   try{
-    const s=await getDoc(doc(db,'tables',id));
+    const s=data?{exists:()=>true,data:()=>data}:await getDoc(doc(db,'tables',id));
     if(!s.exists()){toast('Tisch nicht gefunden');return}
     closeTable();T={id,...s.data()};sel=null;
     const rc=JSON.parse(localStorage.getItem('recent')||'[]').filter(r=>r.id!==id);rc.unshift({id,name:T.venueName,date:T.date});localStorage.setItem('recent',JSON.stringify(rc.slice(0,4)));
     history.replaceState(null,'','#'+id);
     $('#home').hidden=true;$('#app').hidden=false;
     $('#vn').textContent=T.venueName;$('#vd').textContent=dstr(T.date)+' · Code '+id;
-    for(const c of ['people','items','orders'])unsubs.push(onSnapshot(collection(db,...path(c)),q=>{S[c]=q.docs.map(d=>({id:d.id,...d.data()}));if(c==='people'&&sel&&!S.people.some(p=>p.id===sel))sel=null;render()},()=>toast('Verbindungsproblem')));
+    for(const c of ['people','items','orders'])unsubs.push(onSnapshot(collection(db,...path(c)),q=>{S[c]=q.docs.map(d=>({id:d.id,...d.data()}));if(c==='people'&&sel&&!S.people.some(p=>p.id===sel))sel=null;render()},e=>showErr(e,'Verbindungsproblem')));
     render();
-  }catch(e){toast('Tisch konnte nicht geöffnet werden')}}
+  }catch(e){showErr(e,'Tisch konnte nicht geöffnet werden')}}
 function closeTable(){unsubs.forEach(u=>u());unsubs=[];T=null;S.people=[];S.items=[];S.orders=[]}
 $('#back').onclick=()=>{closeTable();history.replaceState(null,'',location.pathname);$('#app').hidden=true;$('#home').hidden=false;fillHome()};
 if(db&&location.hash.length>1)openTable(location.hash.slice(1).toUpperCase());
